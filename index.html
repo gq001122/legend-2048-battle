@@ -237,7 +237,7 @@
             z-index: 50;
         }
         
-        /* 单人模式棋盘 - 更大 */
+        /* 单人模式棋盘 - 占满可用空间 */
         .single-mode .board-section.player {
             flex: 1;
             display: flex;
@@ -245,11 +245,10 @@
             justify-content: center;
         }
         .single-mode .board-container {
-            width: auto;
-            height: auto;
+            width: calc(100vh - 50px);
+            height: calc(100vh - 50px);
+            max-width: 90vw;
             max-height: calc(100vh - 50px);
-            max-width: calc(100vh - 50px);
-            aspect-ratio: 1;
         }
         
         /* 对战模式玩家棋盘 */
