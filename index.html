@@ -178,8 +178,8 @@
             justify-content: center;
             min-height: 0;
         }
-        .board-section.player { flex: 3; }
-        .board-section.opponent { flex: 1.2; }
+        .board-section.player { flex: 3.5; }
+        .board-section.opponent { flex: 1; }
         
         .board-label {
             color: #fff;
@@ -226,21 +226,41 @@
             opacity: 0.85;
         }
         
+        /* 对手棋盘蒙层 */
+        .board-container.opponent::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 6px;
+            pointer-events: none;
+            z-index: 50;
+        }
+        
         /* 单人模式棋盘 - 更大 */
+        .single-mode .board-section.player {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         .single-mode .board-container {
-            max-height: calc(100vh - 80px);
-            max-width: calc(100vh - 80px);
+            width: auto;
+            height: auto;
+            max-height: calc(100vh - 50px);
+            max-width: calc(100vh - 50px);
+            aspect-ratio: 1;
         }
         
         /* 对战模式玩家棋盘 */
         .battle-mode .board-section.player .board-container {
-            max-height: calc(100vh - 80px);
+            max-height: calc(100vh - 70px);
             max-width: none;
         }
         
         /* 对战模式对手棋盘 */
         .battle-mode .board-section.opponent .board-container {
-            max-height: calc(100vh - 80px);
+            max-height: calc(100vh - 70px);
             max-width: none;
         }
         
@@ -964,7 +984,6 @@
             
             // 隐藏菜单，显示游戏区域
             document.getElementById('mainMenu').style.display = 'none';
-            document.getElementById('legendBar').style.display = 'flex';
             document.getElementById('backBtn').classList.add('show');
             
             if (mode === 'classic') {
@@ -1024,7 +1043,6 @@
             document.getElementById('gameArea').classList.remove('active');
             document.getElementById('battleArea').classList.remove('active');
             document.getElementById('mainMenu').style.display = 'flex';
-            document.getElementById('legendBar').style.display = 'none';
             document.getElementById('backBtn').classList.remove('show');
             document.getElementById('gameOverlay').classList.remove('show');
         }
@@ -1517,8 +1535,12 @@
 
         // ==================== 渲染 ====================
         function renderBoard() {
-            const layer = document.getElementById('mainTileLayer') || document.getElementById('playerTileLayer');
-            const board = document.getElementById('mainBoard') || document.getElementById('playerBoard');
+            const layer = (gameState.mode === 'classic') 
+                ? document.getElementById('mainTileLayer') 
+                : document.getElementById('playerTileLayer');
+            const board = (gameState.mode === 'classic') 
+                ? document.getElementById('mainBoard') 
+                : document.getElementById('playerBoard');
             
             if (!layer || !board) return;
             
@@ -1618,7 +1640,9 @@
             
             const colors = ['#ff4444', '#ff8844', '#ffdd44', '#66dd66', '#4488ff', '#aa44dd', '#ff69b4', '#ffd700'];
             const count = Math.min(8, 4 + Math.log2(value));
-            const board = document.getElementById('mainBoard') || document.getElementById('playerBoard');
+            const board = (gameState.mode === 'classic') 
+                ? document.getElementById('mainBoard') 
+                : document.getElementById('playerBoard');
             const cellSize = (Math.min(board.clientWidth - 12, board.clientHeight - 12) - CONFIG.CELL_GAP * 3) / 4;
             
             for (let i = 0; i < count; i++) {
