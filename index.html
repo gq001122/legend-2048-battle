@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🌟 传奇2048 - 横屏版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* 横屏提示 */
+        .rotate-hint {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+        }
+        .rotate-hint .icon {
+            font-size: 80px;
+            animation: rotate-hint 2s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes rotate-hint {
+            0%, 100% { transform: rotate(-20deg); }
+            50% { transform: rotate(20deg); }
+        }
+        
+        @media (orientation: portrait) and (max-width: 768px) {
+            .rotate-hint { display: flex; }
+            .game-wrapper { display: none !important; }
+        }
+        
+        /* 游戏容器 */
+        .game-wrapper {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            overflow: hidden;
+        }
+        
+        /* 顶部状态栏 */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 12px;
+            background: rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            height: 32px;
+        }
+        
+        .energy-display {
+            display: flex;
+            align-items: center;
+            background: rgba(0,0,0,0.4);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .energy-icon { font-size: 12px; margin-right: 3px; }
+        .energy-value { color: #ffd700; font-weight: bold; font-size: 12px; }
+        
+        .title-small {
+            font-size: 14px;
+            background: linear-gradient(90deg, #ffd700, #ff8c00, #ff69b4, #ff4500, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: rainbow 3s linear infinite;
+        }
+        @keyframes rainbow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+        
+        .best-score {
+            background: rgba(0,0,0,0.4);
+            padding: 2px 8px;
+            border-radius: 10px;
+            color: #aaa;
+            font-size: 12px;
+        }
+        .best-score span { color: #ffd700; font-weight: bold; }
+        
+        .sound-btn {
+            background: rgba(0,0,0,0.4);
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .sound-btn:hover { transform: scale(1.1); }
+        
+        /* 主菜单界面 */
+        .main-menu {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .menu-title {
+            font-size: 36px;
+            background: linear-gradient(90deg, #ffd700, #ff8c00, #ff69b4, #ff4500, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 40px;
+            animation: rainbow 3s linear infinite;
+        }
+        
+        .mode-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .mode-card {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .mode-card:hover {
+            transform: translateY(-5px);
+            border-color: #ffd700;
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.2);
+        }
+        .mode-card .icon { font-size: 40px; margin-bottom: 10px; }
+        .mode-card .name { color: #fff; font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+        .mode-card .desc { color: #aaa; font-size: 12px; }
+        .mode-card .cost { color: #ffd700; font-size: 11px; margin-top: 8px; }
+        
+        /* 游戏区域 */
+        .game-area {
+            flex: 1;
+            display: none;
+            padding: 5px 10px;
+            gap: 10px;
+            min-height: 0;
+        }
+        .game-area.active { display: flex; }
+        
+        /* 单人模式布局 */
+        .single-mode {
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* 双人对战布局 */
+        .battle-mode {
+            justify-content: center;
+            align-items: stretch;
+        }
+        
+        /* 棋盘容器 */
+        .board-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        .board-section.player { flex: 3; }
+        .board-section.opponent { flex: 1.2; }
+        
+        .board-label {
+            color: #fff;
+            font-size: 12px;
+            margin-bottom: 3px;
+            font-weight: bold;
+        }
+        .board-label.player { color: #4ecca3; }
+        .board-label.opponent { color: #e94560; }
+        
+        .score-display {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 3px;
+        }
+        .score-item {
+            background: rgba(0,0,0,0.4);
+            padding: 2px 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .score-item .label { color: #888; font-size: 10px; }
+        .score-item .value { color: #ffd700; font-size: 14px; font-weight: bold; }
+        
+        .timer-display {
+            background: rgba(255, 215, 0, 0.2);
+            padding: 2px 12px;
+            border-radius: 12px;
+            margin-bottom: 3px;
+        }
+        .timer-display .time { color: #ffd700; font-size: 16px; font-weight: bold; }
+        
+        .board-container {
+            position: relative;
+            background: rgba(0,0,0,0.4);
+            border: 3px solid #0f3460;
+            border-radius: 8px;
+            padding: 6px;
+            flex: 1;
+            max-width: 100%;
+            aspect-ratio: 1;
+        }
+        .board-container.opponent {
+            opacity: 0.85;
+        }
+        
+        /* 单人模式棋盘 - 更大 */
+        .single-mode .board-container {
+            max-height: calc(100vh - 80px);
+            max-width: calc(100vh - 80px);
+        }
+        
+        /* 对战模式玩家棋盘 */
+        .battle-mode .board-section.player .board-container {
+            max-height: calc(100vh - 80px);
+            max-width: none;
+        }
+        
+        /* 对战模式对手棋盘 */
+        .battle-mode .board-section.opponent .board-container {
+            max-height: calc(100vh - 80px);
+            max-width: none;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            width: 100%;
+            height: 100%;
+        }
+        .board-container.opponent .grid { gap: 3px; }
+        
+        .cell {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        
+        .tile-layer {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            right: 6px;
+            bottom: 6px;
+        }
+        .board-container.opponent .tile-layer { display: none; }
+        
+        .tile-layer-opponent {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            right: 6px;
+            bottom: 6px;
+        }
+        .board-container:not(.opponent) .tile-layer-opponent { display: none; }
+        
+        .tile {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            border-radius: 4px;
+            transition: all 0.12s ease-out;
+        }
+        
+        /* 彩虹颜色 */
+        .tile-2 { background: linear-gradient(135deg, #ff4444, #cc0000); color: #fff; border: 2px solid #ff6666; }
+        .tile-4 { background: linear-gradient(135deg, #ff8844, #ff6600); color: #fff; border: 2px solid #ffaa66; }
+        .tile-8 { background: linear-gradient(135deg, #ffdd44, #ffaa00); color: #fff; border: 2px solid #ffee66; }
+        .tile-16 { background: linear-gradient(135deg, #66dd66, #33aa33); color: #fff; border: 2px solid #88ff88; }
+        .tile-32 { background: linear-gradient(135deg, #4488ff, #2255cc); color: #fff; border: 2px solid #66aaff; }
+        .tile-64 { background: linear-gradient(135deg, #6644dd, #4422aa); color: #fff; border: 2px solid #8866ff; }
+        .tile-128 { background: linear-gradient(135deg, #aa44dd, #8822aa); color: #fff; border: 3px solid #cc66ff; }
+        .tile-256 { background: linear-gradient(135deg, #ffffff, #dddddd); color: #333; border: 3px solid #ff66ff; box-shadow: 0 0 15px #ff66ff; }
+        .tile-512 { background: linear-gradient(135deg, #ffdd00, #ffaa00); color: #333; border: 3px solid #ff0; box-shadow: 0 0 20px #ff0; }
+        .tile-1024 { background: linear-gradient(135deg, #fff, #ff0); color: #333; border: 3px solid #f0f; box-shadow: 0 0 25px #f0f; }
+        .tile-2048 { background: linear-gradient(135deg, #f0f, #ff0, #0ff, #f00); color: #fff; border: 4px solid #fff; box-shadow: 0 0 30px #fff; animation: rainbow-glow 1s linear infinite; }
+        .tile-super { background: linear-gradient(135deg, #fff, #ffd700, #ff69b4, #00ffff); color: #333; border: 4px solid #ffd700; box-shadow: 0 0 40px #ffd700; animation: rainbow-glow 0.5s linear infinite; }
+        
+        /* 锁定行 */
+        .tile-locked { 
+            background: linear-gradient(135deg, #333, #111) !important; 
+            border: 2px solid #f00 !important;
+        }
+        .tile-locked::after {
+            content: '🔒';
+            position: absolute;
+            font-size: 10px;
+            top: 2px;
+            right: 2px;
+        }
+        
+        /* 炸弹方块 */
+        .tile-bomb {
+            background: linear-gradient(135deg, #111, #333) !important;
+            border: 2px solid #ff4444 !important;
+            animation: bomb-pulse 1s ease-in-out infinite;
+        }
+        .tile-bomb::after {
+            content: attr(data-turn);
+            position: absolute;
+            font-size: 12px;
+            color: #f00;
+        }
+        @keyframes bomb-pulse {
+            0%, 100% { box-shadow: 0 0 5px #f00; }
+            50% { box-shadow: 0 0 15px #f00; }
+        }
+        
+        /* 干扰方块 */
+        .tile-block {
+            background: linear-gradient(135deg, #666, #444) !important;
+            border: 2px solid #888 !important;
+            color: #ccc;
+        }
+        
+        @keyframes rainbow-glow {
+            0% { box-shadow: 0 0 30px #ff0000; }
+            25% { box-shadow: 0 0 30px #ffff00; }
+            50% { box-shadow: 0 0 30px #00ff00; }
+            75% { box-shadow: 0 0 30px #00ffff; }
+            100% { box-shadow: 0 0 30px #ff00ff; }
+        }
+        
+        .tile-new { animation: pop 0.15s ease-out; }
+        .tile-merged { animation: merge 0.2s ease-out; }
+        
+        @keyframes pop {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes merge {
+            0% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        /* 攻击特效 */
+        .attack-flash {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle, rgba(255,0,0,0.3) 0%, transparent 70%);
+            pointer-events: none;
+            animation: flash 0.3s ease-out forwards;
+            z-index: 1000;
+        }
+        @keyframes flash {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        .attack-effect {
+            position: absolute;
+            font-size: 30px;
+            animation: attack-anim 0.5s ease-out forwards;
+            z-index: 100;
+        }
+        @keyframes attack-anim {
+            0% { transform: scale(0) rotate(0deg); opacity: 1; }
+            50% { transform: scale(1.5) rotate(180deg); opacity: 1; }
+            100% { transform: scale(2) rotate(360deg); opacity: 0; }
+        }
+        
+        /* 道具提示 */
+        .powerup-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            border: 2px solid #ffd700;
+            border-radius: 15px;
+            padding: 15px 30px;
+            color: #fff;
+            font-size: 18px;
+            z-index: 2000;
+            animation: toast-pop 1.5s ease-out forwards;
+        }
+        .powerup-toast .icon { font-size: 30px; margin-bottom: 5px; }
+        .powerup-toast .text { color: #ffd700; }
+        @keyframes toast-pop {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            15% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            30% { transform: translate(-50%, -50%) scale(1); }
+            70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+        }
+        
+        /* 粒子特效 */
+        .merge-particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particle-fly 0.4s ease-out forwards;
+        }
+        @keyframes particle-fly {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+        }
+        
+        /* 游戏结束覆盖层 */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 500;
+        }
+        .overlay.show { display: flex; }
+        
+        .overlay-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 3px solid #ffd700;
+            border-radius: 20px;
+            padding: 30px 50px;
+            text-align: center;
+            max-width: 400px;
+        }
+        
+        .overlay h2 {
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+        .overlay.win h2 { 
+            background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .overlay.lose h2 { color: #e94560; }
+        .overlay.draw h2 { color: #ffd700; }
+        
+        .overlay .score-result {
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .overlay .score-result .big { font-size: 36px; color: #ffd700; font-weight: bold; }
+        
+        .overlay .result-detail {
+            color: #aaa;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .overlay button {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border: none;
+            color: #fff;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-family: inherit;
+            margin: 5px;
+        }
+        .overlay button:hover { transform: scale(1.05); }
+        .overlay button.secondary { background: rgba(255,255,255,0.1); }
+        
+        /* 返回按钮 */
+        .back-btn {
+            position: fixed;
+            top: 36px;
+            left: 8px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 3px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 100;
+            display: none;
+        }
+        .back-btn.show { display: block; }
+        .back-btn:hover { background: rgba(255,255,255,0.2); }
+        
+        /* 彩虹图例 */
+        .legend-bar {
+            display: none;
+        }
+        .legend-item {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            font-size: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        /* 道具栏 */
+        .powerup-bar {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            padding: 2px;
+            flex-shrink: 0;
+        }
+        .powerup-item {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .powerup-item .icon { font-size: 16px; }
+        .powerup-item.active { 
+            background: rgba(255, 215, 0, 0.3); 
+            border: 1px solid #ffd700;
+            animation: powerup-pulse 1s ease-in-out infinite;
+        }
+        @keyframes powerup-pulse {
+            0%, 100% { box-shadow: 0 0 5px #ffd700; }
+            50% { box-shadow: 0 0 15px #ffd700; }
+        }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .menu-title { font-size: 28px; }
+            .mode-grid { 
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                padding: 0 8px;
+            }
+            .mode-card { padding: 12px 8px; }
+            .mode-card .icon { font-size: 25px; }
+            .mode-card .name { font-size: 13px; }
+            .game-area { padding: 3px 5px; gap: 5px; }
+            .board-section.player { flex: 3; }
+            .board-section.opponent { flex: 1.2; }
+            .score-item .value { font-size: 12px; }
+            .timer-display .time { font-size: 14px; }
+            .board-label { font-size: 10px; }
+        }
+        
+        @media (max-width: 500px) {
+            .top-bar { padding: 3px 6px; }
+            .menu-title { font-size: 22px; margin-bottom: 15px; }
+            .mode-card .icon { font-size: 20px; }
+            .mode-card .name { font-size: 11px; }
+            .mode-card .desc { font-size: 9px; }
+            .game-area { padding: 2px 3px; gap: 3px; }
+        }
+        
+        /* 横屏强制适配 */
+        @media (orientation: landscape) {
+            .game-wrapper {
+                flex-direction: column;
+            }
+            .game-area {
+                flex: 1;
+                min-height: 0;
+            }
+            .board-container {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 横屏提示 -->
+    <div class="rotate-hint">
+        <div class="icon">📱</div>
+        <p>请旋转手机至横屏模式</p>
+        <p style="font-size: 14px; color: #888; margin-top: 10px;">Rotate your device to landscape</p>
+    </div>
+    
+    <div class="game-wrapper">
+        <!-- 顶部状态栏 -->
+        <div class="top-bar">
+            <div class="energy-display">
+                <span class="energy-icon">⚡</span>
+                <span class="energy-value" id="energyValue">200/300</span>
+            </div>
+            <div class="title-small">🌟 传奇2048</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="best-score">最高分: <span id="bestScore">0</span></div>
+                <button class="sound-btn" id="soundBtn">🔊</button>
+            </div>
+        </div>
+        
+        <!-- 主菜单 -->
+        <div class="main-menu" id="mainMenu">
+            <h1 class="menu-title">⭐ 传奇2048 ⭐</h1>
+            <div class="mode-grid">
+                <div class="mode-card" onclick="startGame('classic')">
+                    <div class="icon">🎮</div>
+                    <div class="name">单人经典</div>
+                    <div class="desc">经典2048玩法</div>
+                    <div class="cost">⚡ 8精力</div>
+                </div>
+                <div class="mode-card" onclick="startGame('speed')">
+                    <div class="icon">⚡</div>
+                    <div class="name">同屏竞速</div>
+                    <div class="desc">180秒限时对决</div>
+                    <div class="cost">⚡ 10精力</div>
+                </div>
+                <div class="mode-card" onclick="startGame('battle')">
+                    <div class="icon">⚔️</div>
+                    <div class="name">攻防对战</div>
+                    <div class="desc">300秒策略博弈</div>
+                    <div class="cost">⚡ 15精力</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 游戏区域 -->
+        <div class="game-area single-mode" id="gameArea">
+            <div class="board-section player">
+                <div class="board-container" id="mainBoard">
+                    <div class="grid" id="mainGrid"></div>
+                    <div class="tile-layer" id="mainTileLayer"></div>
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 0 10px;">
+                <div class="score-item">
+                    <div class="label">当前分数</div>
+                    <div class="value" id="currentScore">0</div>
+                </div>
+                <div class="score-item">
+                    <div class="label">最高记录</div>
+                    <div class="value" id="localBest">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 对战区域 -->
+        <div class="game-area battle-mode" id="battleArea">
+            <div class="board-section player">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+                    <div class="board-label player" style="margin-bottom: 0;">🎮 我的棋盘</div>
+                    <div class="timer-display" style="margin-bottom: 0;">
+                        <span class="time" id="gameTimer">180</span>
+                        <span style="color: #888; font-size: 10px;"> 秒</span>
+                    </div>
+                    <div class="score-item" style="margin-bottom: 0;">
+                        <span class="label">我</span>
+                        <span class="value" id="playerScore" style="margin-left: 4px;">0</span>
+                    </div>
+                    <div class="score-item" style="margin-bottom: 0;">
+                        <span class="label">敌</span>
+                        <span class="value" id="opponentScore" style="margin-left: 4px;">0</span>
+                    </div>
+                </div>
+                <div class="board-container" id="playerBoard">
+                    <div class="grid" id="playerGrid"></div>
+                    <div class="tile-layer" id="playerTileLayer"></div>
+                </div>
+                <div class="powerup-bar" id="powerupBar"></div>
+            </div>
+            <div class="board-section opponent">
+                <div class="board-label opponent">🤖 对手</div>
+                <div class="board-container opponent" id="opponentBoard">
+                    <div class="grid" id="opponentGrid"></div>
+                    <div class="tile-layer-opponent" id="opponentTileLayer"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 彩虹图例 -->
+        <div class="legend-bar" id="legendBar" style="display: none;">
+            <div class="legend-item" style="background:#ff4444;">2</div>
+            <div class="legend-item" style="background:#ff6600;">4</div>
+            <div class="legend-item" style="background:#ffaa00;">8</div>
+            <div class="legend-item" style="background:#33aa33;">16</div>
+            <div class="legend-item" style="background:#2255cc;">32</div>
+            <div class="legend-item" style="background:#4422aa;">64</div>
+            <div class="legend-item" style="background:#8822aa;">128</div>
+            <div class="legend-item" style="background:#fff;color:#333;">256</div>
+            <div class="legend-item" style="background:#ffaa00;">512</div>
+            <div class="legend-item" style="background:#ff0;color:#333;">1024</div>
+            <div class="legend-item" style="background:linear-gradient(135deg,#f0f,#ff0);">2048</div>
+        </div>
+        
+        <!-- 返回按钮 -->
+        <button class="back-btn" id="backBtn" onclick="returnToMenu()">← 返回菜单</button>
+    </div>
+    
+    <!-- 游戏结束覆盖层 -->
+    <div class="overlay" id="gameOverlay">
+        <div class="overlay-content">
+            <h2 id="resultTitle">游戏结束</h2>
+            <div class="score-result">
+                <div>最终得分</div>
+                <div class="big" id="finalScoreDisplay">0</div>
+            </div>
+            <div class="result-detail" id="resultDetail"></div>
+            <button onclick="returnToMenu()">返回菜单</button>
+            <button onclick="restartGame()" class="secondary">再来一局</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 游戏配置 ====================
+        const CONFIG = {
+            GRID_SIZE: 4,
+            CELL_GAP: 5,
+            ANIMATION_SPEED: 120,
+            GAME_DURATION: {
+                classic: 0,
+                speed: 180,
+                battle: 300
+            },
+            ENERGY_COST: {
+                classic: 8,
+                speed: 10,
+                battle: 15
+            }
+        };
+
+        // 彩虹数值定义
+        const RAINBOW_VALUES = [
+            { value: 2, name: '红色', color: '#ff4444' },
+            { value: 4, name: '橙色', color: '#ff6600' },
+            { value: 8, name: '黄色', color: '#ffaa00' },
+            { value: 16, name: '绿色', color: '#33aa33' },
+            { value: 32, name: '蓝色', color: '#2255cc' },
+            { value: 64, name: '靛色', color: '#4422aa' },
+            { value: 128, name: '紫色', color: '#8822aa' },
+            { value: 256, name: '白色', color: '#ffffff' },
+            { value: 512, name: '金色', color: '#ffaa00' },
+            { value: 1024, name: '闪耀', color: '#ffff00' },
+            { value: 2048, name: '彩虹', color: '#ff00ff' }
+        ];
+
+        // ==================== 精力系统 ====================
+        const ENERGY_CONFIG = {
+            initial: 200,
+            max: 300,
+            recoverRate: 20
+        };
+
+        let energy = ENERGY_CONFIG.initial;
+
+        function updateEnergyUI() {
+            document.getElementById('energyValue').textContent = `${energy}/${ENERGY_CONFIG.max}`;
+        }
+
+        function consumeEnergy(mode) {
+            const cost = CONFIG.ENERGY_COST[mode];
+            if (energy < cost) {
+                showToast('精力不足! 请稍后再试', '⚡');
+                return false;
+            }
+            energy = Math.max(0, energy - cost);
+            updateEnergyUI();
+            return true;
+        }
+
+        function recoverEnergy() {
+            energy = Math.min(energy + ENERGY_CONFIG.recoverRate, ENERGY_CONFIG.max);
+            updateEnergyUI();
+        }
+
+        setInterval(recoverEnergy, 60000);
+
+        // ==================== 游戏状态 ====================
+        let gameState = {
+            mode: 'classic',
+            grid: [],
+            score: 0,
+            best: 0,
+            over: false,
+            won: false,
+            timer: 0,
+            timerInterval: null,
+            opponentGrid: [],
+            opponentScore: 0,
+            aiInterval: null,
+            seed: 0,
+            powerups: [],
+            lockedRows: {},
+            bombs: {},
+            opponentLockedRows: {},
+            opponentBombs: {}
+        };
+
+        // ==================== 音频系统 ====================
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log('Audio not supported');
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx || !soundEnabled) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            
+            switch(type) {
+                case 'move':
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.08);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                    break;
+                case 'merge':
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                    break;
+                case 'bigMerge':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                    break;
+                case 'win':
+                    [523, 659, 784, 1047].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.frequency.setValueAtTime(freq, now + i * 0.12);
+                        g.gain.setValueAtTime(0.12, now + i * 0.12);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.12 + 0.25);
+                        o.start(now + i * 0.12);
+                        o.stop(now + i * 0.12 + 0.25);
+                    });
+                    return;
+                case 'lose':
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.4);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                    break;
+                case 'attack':
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                    break;
+                case 'powerup':
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.setValueAtTime(800, now + 0.05);
+                    osc.frequency.setValueAtTime(1000, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                    break;
+            }
+        }
+
+        document.getElementById('soundBtn').addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundBtn').textContent = soundEnabled ? '🔊' : '🔇';
+        });
+
+        // ==================== 初始化 ====================
+        function init() {
+            loadBest();
+            initAudio();
+            updateEnergyUI();
+            createGrids();
+        }
+
+        function loadBest() {
+            const saved = localStorage.getItem('legend2048_best');
+            gameState.best = saved ? parseInt(saved) : 0;
+            document.getElementById('bestScore').textContent = gameState.best;
+        }
+
+        function saveBest() {
+            if (gameState.score > gameState.best) {
+                gameState.best = gameState.score;
+                localStorage.setItem('legend2048_best', gameState.best);
+                document.getElementById('bestScore').textContent = gameState.best;
+            }
+        }
+
+        function createGrids() {
+            ['mainGrid', 'playerGrid', 'opponentGrid'].forEach(id => {
+                const grid = document.getElementById(id);
+                grid.innerHTML = '';
+                for (let i = 0; i < 16; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    grid.appendChild(cell);
+                }
+            });
+        }
+
+        // ==================== 游戏开始 ====================
+        function startGame(mode) {
+            if (!consumeEnergy(mode)) return;
+            
+            // 清理之前的游戏
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            if (gameState.aiInterval) clearInterval(gameState.aiInterval);
+            
+            gameState.mode = mode;
+            gameState.score = 0;
+            gameState.over = false;
+            gameState.won = false;
+            gameState.grid = createEmptyGrid();
+            gameState.lockedRows = {};
+            gameState.bombs = {};
+            gameState.powerups = [];
+            
+            // 生成随机种子
+            gameState.seed = Date.now();
+            
+            // 初始化棋盘
+            addRandomTile(gameState.grid);
+            addRandomTile(gameState.grid);
+            
+            // 隐藏菜单，显示游戏区域
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('legendBar').style.display = 'flex';
+            document.getElementById('backBtn').classList.add('show');
+            
+            if (mode === 'classic') {
+                document.getElementById('gameArea').classList.add('active');
+                document.getElementById('battleArea').classList.remove('active');
+                document.getElementById('gameArea').classList.add('single-mode');
+                document.getElementById('gameArea').classList.remove('battle-mode');
+            } else {
+                // 对战模式初始化
+                gameState.opponentGrid = createEmptyGrid();
+                gameState.opponentScore = 0;
+                gameState.opponentLockedRows = {};
+                gameState.opponentBombs = {};
+                
+                // AI对手初始化
+                addRandomTile(gameState.opponentGrid);
+                addRandomTile(gameState.opponentGrid);
+                
+                // 更新计时器显示
+                gameState.timer = CONFIG.GAME_DURATION[mode];
+                document.getElementById('gameTimer').textContent = gameState.timer;
+                
+                // 开始计时器
+                gameState.timerInterval = setInterval(() => {
+                    gameState.timer--;
+                    document.getElementById('gameTimer').textContent = gameState.timer;
+                    
+                    if (gameState.timer <= 0) {
+                        endGame('time');
+                    }
+                }, 1000);
+                
+                // AI对手逻辑
+                const aiSpeed = mode === 'speed' ? 800 : 1200;
+                gameState.aiInterval = setInterval(() => {
+                    if (!gameState.over) {
+                        aiMove();
+                    }
+                }, aiSpeed);
+                
+                document.getElementById('gameArea').classList.remove('active');
+                document.getElementById('battleArea').classList.add('active');
+            }
+            
+            renderBoard();
+            updateScoreDisplay();
+        }
+
+        function createEmptyGrid() {
+            return Array(CONFIG.GRID_SIZE).fill(null).map(() => Array(CONFIG.GRID_SIZE).fill(0));
+        }
+
+        function returnToMenu() {
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            if (gameState.aiInterval) clearInterval(gameState.aiInterval);
+            
+            document.getElementById('gameArea').classList.remove('active');
+            document.getElementById('battleArea').classList.remove('active');
+            document.getElementById('mainMenu').style.display = 'flex';
+            document.getElementById('legendBar').style.display = 'none';
+            document.getElementById('backBtn').classList.remove('show');
+            document.getElementById('gameOverlay').classList.remove('show');
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverlay').classList.remove('show');
+            startGame(gameState.mode);
+        }
+
+        // ==================== AI对手逻辑 ====================
+        function aiMove() {
+            const grid = gameState.opponentGrid;
+            const directions = ['up', 'down', 'left', 'right'];
+            
+            // 简单AI：寻找最佳移动方向
+            let bestDir = null;
+            let bestScore = -1;
+            
+            directions.forEach(dir => {
+                const testGrid = JSON.parse(JSON.stringify(grid));
+                if (canMoveInDirection(testGrid, dir)) {
+                    simulateMove(testGrid, dir);
+                    const score = calculatePotential(testGrid);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestDir = dir;
+                    }
+                }
+            });
+            
+            if (bestDir) {
+                moveOpponent(bestDir);
+            }
+        }
+
+        function canMoveInDirection(grid, direction) {
+            // 检查是否有锁定行
+            const lockedRows = gameState.opponentLockedRows;
+            
+            if (direction === 'up' || direction === 'down') {
+                // 检查是否有完全锁定的行
+                const lockCount = Object.keys(lockedRows).length;
+                if (lockCount >= CONFIG.GRID_SIZE) return false;
+            }
+            
+            // 简化检查：只要有空位或可合并就可能移动
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) return true;
+                    if (c < CONFIG.GRID_SIZE - 1 && grid[r][c] === grid[r][c + 1]) return true;
+                    if (r < CONFIG.GRID_SIZE - 1 && grid[r][c] === grid[r + 1][c]) return true;
+                }
+            }
+            return false;
+        }
+
+        function calculatePotential(grid) {
+            let score = 0;
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    score += grid[r][c];
+                }
+            }
+            return score;
+        }
+
+        function simulateMove(grid, direction) {
+            // 简化模拟
+            const oldGrid = JSON.stringify(grid);
+            moveGrid(grid, direction, false);
+            return oldGrid !== JSON.stringify(grid);
+        }
+
+        function moveOpponent(direction) {
+            if (gameState.over) return;
+            
+            const grid = gameState.opponentGrid;
+            const merged = moveGrid(grid, direction, true);
+            
+            if (merged.moved) {
+                gameState.opponentScore += merged.points;
+                
+                // 检查2048胜利
+                if (checkWin(grid)) {
+                    endGame('lose');
+                    return;
+                }
+                
+                // 攻击力触发（攻防模式）
+                if (gameState.mode === 'battle') {
+                    triggerOpponentAttack(merged.mergedValues);
+                }
+            }
+            
+            renderOpponentBoard();
+            updateScoreDisplay();
+        }
+
+        // ==================== 移动逻辑 ====================
+        function move(direction) {
+            if (gameState.over) return;
+            
+            const result = moveGrid(gameState.grid, direction, true);
+            
+            if (result.moved) {
+                playSound('move');
+                gameState.score += result.points;
+                
+                // 播放合成音效
+                result.mergedValues.forEach(v => {
+                    if (v >= 128) {
+                        playSound('bigMerge');
+                    } else {
+                        playSound('merge');
+                    }
+                    createParticles(v);
+                });
+                
+                // 攻击力触发
+                if (gameState.mode === 'battle') {
+                    triggerAttack(result.mergedValues);
+                }
+                
+                // 更新分数
+                updateScoreDisplay();
+                
+                // 检查胜利
+                if (checkWin(gameState.grid)) {
+                    endGame('win');
+                    return;
+                }
+                
+                // 检查游戏结束
+                if (!canMove(gameState.grid)) {
+                    endGame(gameState.mode === 'classic' ? 'lose' : 'time');
+                    return;
+                }
+            }
+            
+            renderBoard();
+        }
+
+        function moveGrid(grid, direction, addTile) {
+            const oldGrid = JSON.stringify(grid);
+            let moved = false;
+            let points = 0;
+            let mergedValues = [];
+            const lockedRows = grid === gameState.grid ? gameState.lockedRows : gameState.opponentLockedRows;
+            
+            if (direction === 'left' || direction === 'right') {
+                for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                    // 跳过锁定行
+                    if (lockedRows[r]) continue;
+                    
+                    let row = grid[r].filter(v => v !== 0);
+                    if (direction === 'right') row.reverse();
+                    
+                    for (let i = 0; i < row.length - 1; i++) {
+                        if (row[i] === row[i + 1] && row[i] > 0) {
+                            row[i] *= 2;
+                            points += row[i];
+                            mergedValues.push(row[i]);
+                            row.splice(i + 1, 1);
+                            moved = true;
+                        }
+                    }
+                    
+                    while (row.length < CONFIG.GRID_SIZE) row.push(0);
+                    if (direction === 'right') row.reverse();
+                    
+                    if (JSON.stringify(grid[r]) !== JSON.stringify(row)) {
+                        moved = true;
+                    }
+                    grid[r] = row;
+                }
+            } else {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    let col = [];
+                    for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                        if (grid[r][c] !== 0) col.push(grid[r][c]);
+                    }
+                    if (direction === 'down') col.reverse();
+                    
+                    for (let i = 0; i < col.length - 1; i++) {
+                        if (col[i] === col[i + 1] && col[i] > 0) {
+                            col[i] *= 2;
+                            points += col[i];
+                            mergedValues.push(col[i]);
+                            col.splice(i + 1, 1);
+                            moved = true;
+                        }
+                    }
+                    
+                    while (col.length < CONFIG.GRID_SIZE) col.push(0);
+                    if (direction === 'down') col.reverse();
+                    
+                    for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                        if (grid[r][c] !== col[r]) moved = true;
+                        grid[r][c] = col[r];
+                    }
+                }
+            }
+            
+            // 清除已触发的锁定行
+            if (moved) {
+                if (grid === gameState.grid) {
+                    Object.keys(gameState.lockedRows).forEach(row => {
+                        gameState.lockedRows[row]--;
+                        if (gameState.lockedRows[row] <= 0) delete gameState.lockedRows[row];
+                    });
+                    // 炸弹倒计时
+                    Object.keys(gameState.bombs).forEach(key => {
+                        gameState.bombs[key]--;
+                        if (gameState.bombs[key] <= 0) {
+                            const [r, c] = key.split(',').map(Number);
+                            grid[r][c] = 0;
+                            delete gameState.bombs[key];
+                        }
+                    });
+                } else {
+                    Object.keys(gameState.opponentLockedRows).forEach(row => {
+                        gameState.opponentLockedRows[row]--;
+                        if (gameState.opponentLockedRows[row] <= 0) delete gameState.opponentLockedRows[row];
+                    });
+                    Object.keys(gameState.opponentBombs).forEach(key => {
+                        gameState.opponentBombs[key]--;
+                        if (gameState.opponentBombs[key] <= 0) {
+                            const [r, c] = key.split(',').map(Number);
+                            grid[r][c] = 0;
+                            delete gameState.opponentBombs[key];
+                        }
+                    });
+                }
+            }
+            
+            if (moved && addTile) {
+                addRandomTile(grid);
+            }
+            
+            return { moved, points, mergedValues };
+        }
+
+        function addRandomTile(grid) {
+            const empty = [];
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) empty.push({ r, c });
+                }
+            }
+            if (empty.length === 0) return false;
+            
+            const { r, c } = empty[Math.floor(seededRandom() * empty.length)];
+            grid[r][c] = seededRandom() < 0.9 ? 2 : 4;
+            return true;
+        }
+
+        function seededRandom() {
+            gameState.seed = (gameState.seed * 9301 + 49297) % 233280;
+            return gameState.seed / 233280;
+        }
+
+        function canMove(grid) {
+            // 检查空格
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) return true;
+                }
+            }
+            // 检查可合并
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    const val = grid[r][c];
+                    if (r < CONFIG.GRID_SIZE - 1 && grid[r + 1][c] === val && val > 0) return true;
+                    if (c < CONFIG.GRID_SIZE - 1 && grid[r][c + 1] === val && val > 0) return true;
+                }
+            }
+            return false;
+        }
+
+        function checkWin(grid) {
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 2048) return true;
+                }
+            }
+            return false;
+        }
+
+        // ==================== 攻击系统 ====================
+        function triggerAttack(mergedValues) {
+            mergedValues.forEach(value => {
+                switch(value) {
+                    case 128:
+                        // 落雷：对手棋盘多一个干扰方块
+                        addOpponentBlock();
+                        showAttackEffect('⚡ 落雷!');
+                        break;
+                    case 256:
+                        // 禁锢：锁定对手一行
+                        lockOpponentRow();
+                        showAttackEffect('🔒 禁锢!');
+                        break;
+                    case 512:
+                        // 爆破：插入炸弹
+                        addOpponentBomb();
+                        showAttackEffect('💣 爆破!');
+                        break;
+                    case 1024:
+                        // 混乱：打乱对手棋盘
+                        scrambleOpponentBoard();
+                        showAttackEffect('🌀 混乱!');
+                        break;
+                    case 2048:
+                        // 必杀：直接胜利
+                        endGame('win');
+                        break;
+                }
+            });
+        }
+
+        function triggerOpponentAttack(mergedValues) {
+            mergedValues.forEach(value => {
+                switch(value) {
+                    case 128:
+                        addPlayerBlock();
+                        showAttackEffect('⚡ 受到落雷!');
+                        break;
+                    case 256:
+                        lockPlayerRow();
+                        showAttackEffect('🔒 受到禁锢!');
+                        break;
+                    case 512:
+                        addPlayerBomb();
+                        showAttackEffect('💣 受到爆破!');
+                        break;
+                    case 1024:
+                        scramblePlayerBoard();
+                        showAttackEffect('🌀 受到混乱!');
+                        break;
+                }
+            });
+        }
+
+        function addOpponentBlock() {
+            const grid = gameState.opponentGrid;
+            const empty = [];
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) empty.push({ r, c });
+                }
+            }
+            if (empty.length > 0) {
+                const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+                grid[r][c] = -1; // 干扰方块
+                setTimeout(() => {
+                    if (grid[r][c] === -1) grid[r][c] = 0;
+                }, 5000);
+            }
+        }
+
+        function addPlayerBlock() {
+            const grid = gameState.grid;
+            const empty = [];
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) empty.push({ r, c });
+                }
+            }
+            if (empty.length > 0) {
+                const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+                grid[r][c] = -1;
+                playSound('attack');
+                showFlash();
+                setTimeout(() => {
+                    if (grid[r][c] === -1) grid[r][c] = 0;
+                    renderBoard();
+                }, 3000);
+            }
+        }
+
+        function lockOpponentRow() {
+            const row = Math.floor(Math.random() * CONFIG.GRID_SIZE);
+            gameState.opponentLockedRows[row] = 1;
+        }
+
+        function lockPlayerRow() {
+            const row = Math.floor(Math.random() * CONFIG.GRID_SIZE);
+            gameState.lockedRows[row] = 1;
+            playSound('attack');
+            showFlash();
+        }
+
+        function addOpponentBomb() {
+            const grid = gameState.opponentGrid;
+            const empty = [];
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) empty.push({ r, c });
+                }
+            }
+            if (empty.length > 0) {
+                const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+                grid[r][c] = -2; // 炸弹
+                gameState.opponentBombs[`${r},${c}`] = 3;
+            }
+        }
+
+        function addPlayerBomb() {
+            const grid = gameState.grid;
+            const empty = [];
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) empty.push({ r, c });
+                }
+            }
+            if (empty.length > 0) {
+                const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+                grid[r][c] = -2;
+                gameState.bombs[`${r},${c}`] = 3;
+                playSound('attack');
+                showFlash();
+                renderBoard();
+            }
+        }
+
+        function scrambleOpponentBoard() {
+            const grid = gameState.opponentGrid;
+            const values = [];
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] > 0) values.push(grid[r][c]);
+                }
+            }
+            shuffleArray(values);
+            let idx = 0;
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] > 0) {
+                        grid[r][c] = values[idx++] || 0;
+                    }
+                }
+            }
+        }
+
+        function scramblePlayerBoard() {
+            const grid = gameState.grid;
+            const values = [];
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] > 0) values.push(grid[r][c]);
+                }
+            }
+            shuffleArray(values);
+            let idx = 0;
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    if (grid[r][c] > 0) {
+                        grid[r][c] = values[idx++] || 0;
+                    }
+                }
+            }
+            gameState.lockedRows = {};
+            gameState.bombs = {};
+            playSound('attack');
+            showFlash();
+            renderBoard();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function showAttackEffect(text) {
+            const toast = document.createElement('div');
+            toast.className = 'powerup-toast';
+            toast.innerHTML = `<div class="icon">⚔️</div><div class="text">${text}</div>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 1500);
+        }
+
+        function showFlash() {
+            const flash = document.createElement('div');
+            flash.className = 'attack-flash';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 300);
+        }
+
+        // ==================== 渲染 ====================
+        function renderBoard() {
+            const layer = document.getElementById('mainTileLayer') || document.getElementById('playerTileLayer');
+            const board = document.getElementById('mainBoard') || document.getElementById('playerBoard');
+            
+            if (!layer || !board) return;
+            
+            const containerWidth = Math.min(board.clientWidth - 12, board.clientHeight - 12);
+            const cellSize = (containerWidth - CONFIG.CELL_GAP * (CONFIG.GRID_SIZE - 1)) / CONFIG.GRID_SIZE;
+            
+            layer.innerHTML = '';
+            
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    const value = gameState.grid[r][c];
+                    if (value === 0) continue;
+                    
+                    const tile = createTileElement(value, r, c, cellSize);
+                    
+                    // 锁定行
+                    if (value > 0 && gameState.lockedRows[r]) {
+                        tile.classList.add('tile-locked');
+                    }
+                    // 炸弹
+                    if (value === -2) {
+                        tile.classList.add('tile-bomb');
+                        tile.setAttribute('data-turn', gameState.bombs[`${r},${c}`] || '?');
+                        tile.textContent = gameState.bombs[`${r},${c}`] || '';
+                    }
+                    // 干扰方块
+                    if (value === -1) {
+                        tile.classList.add('tile-block');
+                        tile.textContent = 'X';
+                    }
+                    
+                    layer.appendChild(tile);
+                }
+            }
+        }
+
+        function renderOpponentBoard() {
+            const layer = document.getElementById('opponentTileLayer');
+            const board = document.getElementById('opponentBoard');
+            if (!layer || !board) return;
+            
+            const containerWidth = Math.min(board.clientWidth - 12, board.clientHeight - 12);
+            const cellSize = (containerWidth - 3 * (CONFIG.GRID_SIZE - 1)) / CONFIG.GRID_SIZE;
+            
+            layer.innerHTML = '';
+            
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+                    const value = gameState.opponentGrid[r][c];
+                    if (value === 0) continue;
+                    
+                    const tile = createTileElement(value, r, c, cellSize, 4);
+                    
+                    if (value === -2) {
+                        tile.classList.add('tile-bomb');
+                        tile.setAttribute('data-turn', gameState.opponentBombs[`${r},${c}`] || '?');
+                        tile.textContent = gameState.opponentBombs[`${r},${c}`] || '';
+                    }
+                    if (value === -1) {
+                        tile.classList.add('tile-block');
+                        tile.textContent = 'X';
+                    }
+                    
+                    layer.appendChild(tile);
+                }
+            }
+        }
+
+        function createTileElement(value, row, col, cellSize, gap = CONFIG.CELL_GAP) {
+            const tile = document.createElement('div');
+            
+            const x = col * (cellSize + gap);
+            const y = row * (cellSize + gap);
+            
+            tile.style.left = x + 'px';
+            tile.style.top = y + 'px';
+            tile.style.width = cellSize + 'px';
+            tile.style.height = cellSize + 'px';
+            tile.style.fontSize = (cellSize / 3) + 'px';
+            
+            if (value > 0) {
+                tile.className = 'tile tile-new';
+                if (value > 2048) {
+                    tile.classList.add('tile-super');
+                } else {
+                    tile.classList.add('tile-' + value);
+                }
+                tile.textContent = value;
+            }
+            
+            return tile;
+        }
+
+        function createParticles(value) {
+            const layer = document.getElementById('mainTileLayer') || document.getElementById('playerTileLayer');
+            if (!layer) return;
+            
+            const colors = ['#ff4444', '#ff8844', '#ffdd44', '#66dd66', '#4488ff', '#aa44dd', '#ff69b4', '#ffd700'];
+            const count = Math.min(8, 4 + Math.log2(value));
+            const board = document.getElementById('mainBoard') || document.getElementById('playerBoard');
+            const cellSize = (Math.min(board.clientWidth - 12, board.clientHeight - 12) - CONFIG.CELL_GAP * 3) / 4;
+            
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'merge-particle';
+                
+                const angle = (i / count) * Math.PI * 2;
+                const distance = 25 + Math.random() * 15;
+                const dx = Math.cos(angle) * distance;
+                const dy = Math.sin(angle) * distance;
+                
+                particle.style.left = (cellSize * 2) + 'px';
+                particle.style.top = (cellSize * 2) + 'px';
+                particle.style.setProperty('--dx', dx + 'px');
+                particle.style.setProperty('--dy', dy + 'px');
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                
+                layer.appendChild(particle);
+                setTimeout(() => particle.remove(), 400);
+            }
+        }
+
+        function updateScoreDisplay() {
+            if (gameState.mode === 'classic') {
+                document.getElementById('currentScore').textContent = gameState.score;
+                document.getElementById('localBest').textContent = gameState.best;
+            } else {
+                document.getElementById('playerScore').textContent = gameState.score;
+                document.getElementById('opponentScore').textContent = gameState.opponentScore;
+            }
+        }
+
+        // ==================== 游戏结束 ====================
+        function endGame(reason) {
+            gameState.over = true;
+            
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            if (gameState.aiInterval) clearInterval(gameState.aiInterval);
+            
+            saveBest();
+            
+            const overlay = document.getElementById('gameOverlay');
+            const title = document.getElementById('resultTitle');
+            const scoreDisplay = document.getElementById('finalScoreDisplay');
+            const detail = document.getElementById('resultDetail');
+            
+            scoreDisplay.textContent = gameState.score;
+            
+            overlay.className = 'overlay show';
+            
+            if (reason === 'win') {
+                overlay.classList.add('win');
+                title.textContent = '🎉 胜利!';
+                detail.textContent = gameState.mode === 'battle' ? '你合成了2048，直接获胜!' : '恭喜达成彩虹2048!';
+                playSound('win');
+            } else if (reason === 'lose') {
+                overlay.classList.add('lose');
+                title.textContent = '💥 失败';
+                detail.textContent = `对手分数: ${gameState.opponentScore}`;
+                playSound('lose');
+            } else {
+                overlay.classList.add('draw');
+                if (gameState.mode === 'classic') {
+                    title.textContent = '💥 游戏结束';
+                    detail.textContent = '没有可移动的位置了';
+                } else {
+                    // 时间到，比分数
+                    if (gameState.score > gameState.opponentScore) {
+                        title.textContent = '🏆 胜利!';
+                        detail.textContent = `你 ${gameState.score} vs 对手 ${gameState.opponentScore}`;
+                        playSound('win');
+                    } else if (gameState.score < gameState.opponentScore) {
+                        title.textContent = '😢 失败';
+                        detail.textContent = `你 ${gameState.score} vs 对手 ${gameState.opponentScore}`;
+                        playSound('lose');
+                    } else {
+                        title.textContent = '🤝 平局';
+                        detail.textContent = '比分相同!';
+                    }
+                }
+            }
+        }
+
+        // ==================== 输入处理 ====================
+        document.addEventListener('keydown', (e) => {
+            if (gameState.over) return;
+            
+            switch(e.key) {
+                case 'ArrowUp': e.preventDefault(); move('up'); break;
+                case 'ArrowDown': e.preventDefault(); move('down'); break;
+                case 'ArrowLeft': e.preventDefault(); move('left'); break;
+                case 'ArrowRight': e.preventDefault(); move('right'); break;
+            }
+        });
+
+        // 触摸滑动
+        let startX, startY;
+        document.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            if (!startX || !startY || gameState.over) return;
+            
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const dx = endX - startX;
+            const dy = endY - startY;
+            
+            const minSwipe = 30;
+            
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if (Math.abs(dx) > minSwipe) {
+                    move(dx > 0 ? 'right' : 'left');
+                }
+            } else {
+                if (Math.abs(dy) > minSwipe) {
+                    move(dy > 0 ? 'down' : 'up');
+                }
+            }
+            
+            startX = startY = null;
+        }, { passive: true });
+
+        // 窗口大小变化
+        window.addEventListener('resize', () => {
+            renderBoard();
+            renderOpponentBoard();
+        });
+
+        // ==================== 工具函数 ====================
+        function showToast(msg, icon = '') {
+            const toast = document.createElement('div');
+            toast.className = 'powerup-toast';
+            toast.innerHTML = `<div class="icon">${icon}</div><div>${msg}</div>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 1500);
+        }
+
+        // 启动游戏
+        init();
+    </script>
+</body>
+</html>
